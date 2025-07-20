@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(uuid())
+  email           String    @unique
+  passwordHash    String?   @map("password_hash")
+  name            String
+  age             Int?
+  gender          String?
+  location        String?
+  bio             String?
+  avatarUrl       String?   @map("avatar_url")
+  mbtiType        String?   @map("mbti_type")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  isActive        Boolean   @default(true) @map("is_active")
+  emailVerified   Boolean   @default(false) @map("email_verified")
+  lastLogin       DateTime? @map("last_login")
+
+  socialAccounts  SocialAccount[]
+  preferences     UserPreferences?
+  interests       UserInterest[]
+  organizedActivities Activity[] @relation("ActivityOrganizer")
+  participations  ActivityParticipant[]
+  matches         UserMatch[]
+  calendarIntegrations CalendarIntegration[]
+
+  @@map("users")
+}
+
+model SocialAccount {
+  id             String  @id @default(uuid())
+  userId         String  @map("user_id")
+  platform       String
+  platformUserId String? @map("platform_user_id")
+  username       String?
+  profileUrl     String? @map("profile_url")
+  isPublic       Boolean @default(false) @map("is_public")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform])
+  @@map("social_accounts")
+}
+
+model UserPreferences {
+  id                     String   @id @default(uuid())
+  userId                 String   @unique @map("user_id")
+  groupSizePreference    String?  @map("group_size_preference")
+  activityLevel          Int?     @map("activity_level")
+  meetingStyle           String?  @map("meeting_style")
+  budgetRange            String?  @map("budget_range")
+  aiAnalysisEnabled      Boolean  @default(true) @map("ai_analysis_enabled")
+  locationSharingEnabled Boolean  @default(true) @map("location_sharing_enabled")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model UserInterest {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  interest  String
+  weight    Float    @default(1.0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, interest])
+  @@map("user_interests")
+}
+
+model Activity {
+  id                  String    @id @default(uuid())
+  title               String
+  description         String?
+  category            String
+  locationName        String?   @map("location_name")
+  latitude            Decimal?  @db.Decimal(10, 8)
+  longitude           Decimal?  @db.Decimal(11, 8)
+  startTime           DateTime  @map("start_time")
+  endTime             DateTime? @map("end_time")
+  maxParticipants     Int?      @map("max_participants")
+  currentParticipants Int       @default(0) @map("current_participants")
+  price               Decimal   @default(0) @db.Decimal(10, 2)
+  organizerId         String    @map("organizer_id")
+  status              String    @default("active")
+  imageUrl            String?   @map("image_url")
+  requirements        String?
+  tags                String[]  @default([])
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  organizer     User                  @relation("ActivityOrganizer", fields: [organizerId], references: [id])
+  participants  ActivityParticipant[]
+  matches       UserMatch[]
+
+  @@map("activities")
+}
+
+model ActivityParticipant {
+  id         String    @id @default(uuid())
+  activityId String    @map("activity_id")
+  userId     String    @map("user_id")
+  status     String    @default("joined")
+  joinedAt   DateTime  @default(now()) @map("joined_at")
+  rating     Int?
+  review     String?
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, userId])
+  @@map("activity_participants")
+}
+
+model CalendarIntegration {
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id")
+  platform     String
+  accessToken  String?   @map("access_token")
+  refreshToken String?   @map("refresh_token")
+  expiresAt    DateTime? @map("expires_at")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastSync     DateTime? @map("last_sync")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform])
+  @@map("calendar_integrations")
+}
+
+model UserMatch {
+  id                   String   @id @default(uuid())
+  userId               String   @map("user_id")
+  activityId           String   @map("activity_id")
+  matchScore           Float    @map("match_score")
+  recommendationReason String?  @map("recommendation_reason")
+  shownAt              DateTime @default(now()) @map("shown_at")
+  clicked              Boolean  @default(false)
+  joined               Boolean  @default(false)
+  feedbackScore        Int?     @map("feedback_score")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, activityId])
+  @@map("user_matches")
+}
